@@ -1,7 +1,5 @@
 %{
-    #include "pic.hh"
-    #include <iostream>
-    #include <string>
+    #include "pic.cc"
     using namespace std;
 
     extern "C" void yyerror(const char *s);
@@ -44,7 +42,7 @@ program
 ;
 
 array
-    : LSB objects RSB  { $$ = new JSONarray(); $$->elements = std::move(*$2); delete $2; }
+    : LSB objects RSB  { $$ = new JSONarray(); for(auto& item : *$2) {$$->elements.push_back(new JSONvalue(std::move(item)));} delete $2;}
     | LSB RSB          { $$ = new JSONarray(); }
 ;
 
@@ -54,7 +52,7 @@ objects
 ;
 
 object
-    : LCB pairs RCB  { $$ = new JSONObject(); $$->members = std::move(*$2); delete $2; }
+    : LCB pairs RCB  { $$ = new JSONObject(); for(auto& item : *$2) {$$->members[std::move(item.first)] = new JSONvalue(std::move(item.second));} delete $2;}
     | LCB RCB        { $$ = new JSONObject(); }
 ;
 
@@ -84,8 +82,10 @@ value
 
 int main() {
     yyparse();
-    // Add code to handle the parsed JSON stored in `root`
-    // For example, you can print the JSON structure here
+    
+    root.print(cout);
+    cout << endl;
+
     return 0;
 }
 

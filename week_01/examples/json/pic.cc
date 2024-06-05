@@ -1,29 +1,11 @@
 #include "pic.hh"
 
-struct JSONvalue;
+#ifndef JSON_DEFS
+#define JSON_DEFS
 
-struct JSONObject {
-    vector<pair<string, JSONvalue>> members;
-};
+    JSONvalue::JSONvalue() : object_type(7) {} // Default to null
 
-struct JSONarray {
-    vector<JSONvalue> elements;
-};
-
-struct JSONvalue {
-    int object_type;
-    // 0: object, 1: array, 2: string, 3: int, 4: float, 5: true, 6: false, 7: null
-    union {
-        JSONObject* obj_value;
-        JSONarray* arr_value;
-        string* str_value;
-        int int_value;
-        float float_value;
-    };
-
-    JSONvalue() : object_type(7) {} // Default to null
-
-    JSONvalue(const JSONvalue& other) {
+    JSONvalue::JSONvalue(const JSONvalue& other) {
         object_type = other.object_type;
         switch (object_type) {
             case 0: obj_value = new JSONObject(*other.obj_value); break;
@@ -38,9 +20,15 @@ struct JSONvalue {
         }
     }
 
-    JSONvalue& operator=(const JSONvalue& other) {
+    JSONvalue& JSONvalue::operator=(const JSONvalue& other) {
         if (this == &other) return *this;
-        clear();
+
+        switch (object_type) {
+            case 0: delete obj_value; break;
+            case 1: delete arr_value; break;
+            case 2: delete str_value; break;
+            default: break;
+        }
         object_type = other.object_type;
         switch (object_type) {
             case 0: obj_value = new JSONObject(*other.obj_value); break;
@@ -56,16 +44,60 @@ struct JSONvalue {
         return *this;
     }
 
-    ~JSONvalue() {
-        clear();
-    }
-
-    void clear() {
+    JSONvalue::~JSONvalue() {
         switch (object_type) {
             case 0: delete obj_value; break;
             case 1: delete arr_value; break;
             case 2: delete str_value; break;
+            default: break;
         }
-        object_type = 7; // Set to null
     }
-};
+
+    void JSONvalue::print(std::ostream &os) const {
+        switch (object_type) {
+            case 0:
+                obj_value->print(os);
+                break;
+            case 1:
+                arr_value->print(os);
+                break;
+            case 2:
+                os << "\"" << *str_value << "\"";
+                break;
+            case 3:
+                os << int_value;
+                break;
+            case 4:
+                os << float_value;
+                break;
+            case 5:
+                os << "true";
+                break;
+            case 6:
+                os << "false";
+                break;
+            case 7:
+                os << "null";
+                break;
+        }
+    }
+
+    void JSONarray::print(std::ostream &os) const {
+        os << "[";
+        for (int i = 0; i < elements.size(); i++) {
+            if (i > 0) os << ", ";
+            elements[i]->print(os);
+        }
+        os << "]";
+    }
+
+    void JSONObject::print(std::ostream &os) const {
+        os << "{";
+        for (auto it = members.begin(); it != members.end(); it++) {
+            if (it != members.begin()) os << ", ";
+            os << "\"" << it->first << "\": ";
+            it->second->print(os);
+        }
+        os << "}";
+    }
+#endif
