@@ -8,20 +8,18 @@
 
 /* yywrap handles the end-of-input logic, if noyywrap is used, program exits on end-of-file (EOF) */
 %option noyywrap
- 
 
 digit                       [0-9]
 fraction                    ([0-9]*\.[0-9]+|[0-9]+\.[0-9]*)
 ws							[ \t]*
 letter                      [a-zA-Z_]
 
-%x HEADER
 %x DATA
 
 /* RULES */
 %%
 
-<HEADER>{
+<INITIAL>{
 	[^,\n]*											{ yylval.str_ptr = new string(yytext); return HSTRING;}			
 	,												{ return COMMA; }
 	\n												{ BEGIN(DATA); return ENDOFLINE;} // switch to DATA state when newline is encountered
