@@ -28,9 +28,9 @@ null												{ return NULL_CONST; }
 ,														{ return COMMA; }
 :														{ return COLON; }
 
--?{digit}+									{ yylval.ival = atoi(yytext); return INT_CONST; }
--?{fraction}								{ yylval.fval = atof(yytext); return FLT_CONST; }
-\"([^\"]*)\"                { yylval.str = new string(yytext + 1, strlen(yytext) - 2); return STR_CONST; }
+-?{digit}+									{ yylval.name = new string(yytext); return INT_CONST; }
+-?{fraction}								{ yylval.name = new string(yytext); return FLT_CONST; }
+\"([^\"]*)\"                { yylval.name = new string(yytext); return STR_CONST; }
 
 {ws}       									; /* Ignore spaces */
 .         									{ fprintf(stderr, "unknown_token: %d\n", yytext[0]); exit(1); }
