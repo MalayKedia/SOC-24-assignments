@@ -1,103 +1,96 @@
 #include "pic.hh"
 
-#ifndef JSON_DEFS
-#define JSON_DEFS
+JSONValue::JSONValue(const JSON& x) {
+	vtype = JSON_OBJECT;
+	value = new JSON(x);
+}
 
-    JSONvalue::JSONvalue() : object_type(7) {} // Default to null
+JSONValue::JSONValue(const JSONArray& x) {
+	vtype = JSON_ARRAY;
+	value = new JSONArray(x);
+}
 
-    JSONvalue::JSONvalue(const JSONvalue& other) {
-        object_type = other.object_type;
-        switch (object_type) {
-            case 0: obj_value = new JSONObject(*other.obj_value); break;
-            case 1: arr_value = new JSONarray(*other.arr_value); break;
-            case 2: str_value = new string(*other.str_value); break;
-            case 3: int_value = other.int_value; break;
-            case 4: float_value = other.float_value; break;
-            case 5: // true
-            case 6: // false
-            case 7: // null
-                break;
-        }
-    }
+JSONValue::~JSONValue() {
+	if (vtype == JSON_STRING) delete (string*)value;
+	if (vtype == JSON_NUMBER) delete (double*)value;
+	if (vtype == JSON_BOOL) delete (bool*)value;
+	if (vtype == JSON_OBJECT) delete (JSON*)value;
+	if (vtype == JSON_ARRAY) delete (JSONArray*)value;
+}
 
-    JSONvalue& JSONvalue::operator=(const JSONvalue& other) {
-        if (this == &other) return *this;
+void JSONValue::print(int depth = 0) {
+	if (vtype == JSON_STRING) cout << *(string*)value;
+	if (vtype == JSON_NUMBER) cout << *(double*)value;
+	if (vtype == JSON_BOOL) cout << (*(bool*)value ? "true" : "false");
+	if (vtype == JSON_OBJECT) ((JSON*)value)->print(depth);
+	if (vtype == JSON_ARRAY) ((JSONArray*)value)->print(depth);
+	if (vtype == JSON_NULL) cout << "null";
+}
 
-        switch (object_type) {
-            case 0: delete obj_value; break;
-            case 1: delete arr_value; break;
-            case 2: delete str_value; break;
-            default: break;
-        }
-        object_type = other.object_type;
-        switch (object_type) {
-            case 0: obj_value = new JSONObject(*other.obj_value); break;
-            case 1: arr_value = new JSONarray(*other.arr_value); break;
-            case 2: str_value = new string(*other.str_value); break;
-            case 3: int_value = other.int_value; break;
-            case 4: float_value = other.float_value; break;
-            case 5: // true
-            case 6: // false
-            case 7: // null
-                break;
-        }
-        return *this;
-    }
+void JSON::print(int depth = 0) {
+	string space = "";
+	for (int i = 0; i < depth; i++) space += "\t";
 
-    JSONvalue::~JSONvalue() {
-        switch (object_type) {
-            case 0: delete obj_value; break;
-            case 1: delete arr_value; break;
-            case 2: delete str_value; break;
-            default: break;
-        }
-    }
+	cout << "{" << endl;
+	for (auto it = pairs.begin(); it != pairs.end(); it++) {
+		cout << space << "\t" << it->first << " : ";
+		it->second->print(depth+1);
 
-    void JSONvalue::print(std::ostream &os) const {
-        switch (object_type) {
-            case 0:
-                obj_value->print(os);
-                break;
-            case 1:
-                arr_value->print(os);
-                break;
-            case 2:
-                os << "\"" << *str_value << "\"";
-                break;
-            case 3:
-                os << int_value;
-                break;
-            case 4:
-                os << float_value;
-                break;
-            case 5:
-                os << "true";
-                break;
-            case 6:
-                os << "false";
-                break;
-            case 7:
-                os << "null";
-                break;
-        }
-    }
+		if (next(it) == pairs.end()) cout << endl;
+		else cout << "," << endl;
+	}
+	cout << space << "}";
+}
 
-    void JSONarray::print(std::ostream &os) const {
-        os << "[";
-        for (int i = 0; i < elements.size(); i++) {
-            if (i > 0) os << ", ";
-            elements[i]->print(os);
-        }
-        os << "]";
-    }
+JSON::~JSON() {
+	for (auto it = pairs.begin(); it != pairs.end(); it++) {
+		if (it->second->vtype == JSON_OBJECT) delete (JSON*)it->second->value;
+		else if (it->second->vtype == JSON_ARRAY) delete (JSONArray*)it->second->value;
+		else delete it->second;
+	}
+}
 
-    void JSONObject::print(std::ostream &os) const {
-        os << "{";
-        for (auto it = members.begin(); it != members.end(); it++) {
-            if (it != members.begin()) os << ", ";
-            os << "\"" << it->first << "\": ";
-            it->second->print(os);
-        }
-        os << "}";
-    }
-#endif
+void JSONArray::print(int depth = 0) {
+	string space = "";
+	for (int i = 0; i < depth; i++) space += "\t";
+
+	cout << "[" << endl;
+	for (int i = 0; i < objects.size(); i++) {
+		cout << space << "\t";
+		objects[i]->print(depth+1);
+		
+		if (i == objects.size()-1) cout << endl;
+		else cout << "," << endl;
+	}
+	cout << space << "]";
+}
+
+// ---
+
+map<string,JSONValue*>* append_list_pair(map<string,JSONValue*> *m, pair<string,JSONValue*> *p) {
+	if (m == nullptr) m = new map<string,JSONValue*>();
+	if (m->find(p->first) != m->end()) {
+		cerr << "duplicate key error\n";
+		exit(1);
+	}
+	(*m)[p->first] = p->second;
+	return m;
+}
+
+JSON* create_obj(map<string,JSONValue*>* pairs) {
+	JSON* j = new JSON();
+	if (pairs != nullptr) j->pairs = *pairs;
+	return j;
+}
+
+vector<JSON*>* append_list_obj(vector<JSON*> *l, JSON* o) {
+	if (l == nullptr) l = new vector<JSON*>();
+	l->push_back(o);
+	return l;
+}
+
+JSONArray* create_ja(vector<JSON*> *objs) {
+	JSONArray *ja = new JSONArray();
+	if (objs != nullptr) ja->objects = *objs;
+	return ja;
+}

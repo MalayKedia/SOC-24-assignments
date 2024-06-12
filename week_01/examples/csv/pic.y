@@ -1,97 +1,81 @@
 %{
-    #include "pic.cc"
-    using namespace std;
-
-    extern "C" void yyerror(const char *s);
-    extern int yylex(void);
-
-    CSV csv_main;
+		#include "pic.cc"
+		extern "C" void yyerror(const char *s);
+		extern int yylex(void);
 %}
 
-%union {
-    int int_val;          // Integer value
-    float flt_val;        // Float value
-    string* str_ptr;      // Pointer to a string
-    pair<DataType,void*>* data_pair_ptr;  // Pointer to a pair containing a DataType and a void pointer
-    vector<pair<DataType,void*>*>* pair_vector_ptr;  // Pointer to a vector of pairs
-    DataRow* row_ptr;     // Pointer to a DataRow object
-    vector<DataRow*>* row_vector_ptr;  // Pointer to a vector of DataRow objects
-    vector<string*>* str_vector_ptr;  // Pointer to a vector of strings
-    Header* header_ptr;  // Pointer to a Header object
+%union{
+	string *name;
+	CSVElem *elem;
+	VecWrapper* vec;
+	VecVecWrapper* vecvec;
+	Column* col;
+	CSV* csv;
 }
 
-%token TRUE_CONST FALSE_CONST NULL_CONST COMMA ENDOFLINE INT_CONST FLT_CONST STR_CONST HSTRING
+%token TRUE_CONST FALSE_CONST NULL_CONST COMMA INT_CONST FLT_CONST STR_CONST NEWLINE
+%type <name> INT_CONST FLT_CONST STR_CONST
+%type <elem> name literal
+%type <csv> header
+%type <vecvec> rows
+%type <vec> array name_array
 
-%type <int_val> INT_CONST
-%type <flt_val> FLT_CONST
-%type <str_ptr> STR_CONST
-%type <data_pair_ptr> entry
-%type <pair_vector_ptr> entries
-%type <row_ptr> row
-%type <row_vector_ptr> rows
-
-%type <str_ptr> HSTRING
-%type <str_ptr> head_entry
-%type <str_vector_ptr> head_entries
-%type <header_ptr> header
-
-%start csv
+%start program
 %%
 
 /* GRAMMAR */
+/**
+ * Assuming empty file to be valid
+ * this is not a very performant implementation; so feel free to write a more optimal one :)
+ */
 
-csv
-    : header rows           { csv_main.header = $1 ; csv_main.rows = $2 ;}
-    | header                { csv_main.header = $1 ; csv_main.rows = new vector<DataRow*>(); }
+program
+	: optional_newline											{ cout << "Empty file" << endl; }
+	| header optional_newline									{ $1->print(); delete $1; }
+	| header NEWLINE rows optional_newline						{ $1->process_entries($3); $1->print();	delete $1; }
 ;
 
 header
-    : head_entries ENDOFLINE        {$$ = new Header($1); }
+	: name_array												{ $$ = init_csv($1); }
 ;
 
-head_entries
-    : head_entries COMMA head_entry    { $$ = $1; $$->push_back($3); }
-    | head_entry                       { $$ = new vector<string*>(); $$->push_back($1); }
-;
-
-head_entry
-    : HSTRING               { $$ = $1; }
+name_array
+	: name														{ $$ = append_list_obj(nullptr, $1); }
+	| name_array COMMA name										{ $$ = append_list_obj($1, $3); }	
 ;
 
 rows
-    : rows row              { $$ = $1; $1->push_back($2); }
-    | row                   { $$ = new vector<DataRow*>(); $$->push_back($1); }
+	: array														{ $$ = append_list_vec(nullptr, $1); }
+	| rows NEWLINE array										{ $$ = append_list_vec($1, $3); }
 ;
 
-row
-    : entries ENDOFLINE     { $$ = new DataRow($1); }
+array
+	: literal													{ $$ = append_list_obj(nullptr, $1); }
+	| array COMMA literal										{ $$ = append_list_obj($1, $3); }
 ;
 
-entries
-    : entries COMMA entry   { $$ = $1; $1->push_back($3); }
-    | entry                 { $$ = new vector<pair<DataType,void*>*>(); $$->push_back($1); }
+literal
+	: INT_CONST													{ $$ = new CSVElem(new int(atoi($1->c_str())), CSV_INT); }
+	| FLT_CONST													{ $$ = new CSVElem(new double(atof($1->c_str())), CSV_FLT); }
+	| STR_CONST													{ $$ = new CSVElem($1, CSV_STRING); }
+	| TRUE_CONST												{ $$ = new CSVElem(new bool(true), CSV_BOOL); }
+	| FALSE_CONST												{ $$ = new CSVElem(new bool(false), CSV_BOOL); }
+	| NULL_CONST 												{ $$ = new CSVElem(nullptr, CSV_NULL);}
 ;
 
-entry
-    : INT_CONST             { $$ = new pair<DataType,void*> (DATA_INT, new int($1)); }
-    | FLT_CONST             { $$ = new pair<DataType,void*> (DATA_FLOAT, new float($1)); }
-    | STR_CONST             { $$ = new pair<DataType,void*> (DATA_STRING, $1); }
-    | TRUE_CONST            { $$ = new pair<DataType,void*> (DATA_TRUE, NULL); }
-    | FALSE_CONST           { $$ = new pair<DataType,void*> (DATA_FALSE, NULL); }
-    | NULL_CONST            { $$ = new pair<DataType,void*> (DATA_NULL, NULL); }
+name
+	: STR_CONST													{ $$ = new CSVElem($1, CSV_STRING); }
 ;
+
+optional_newline
+	: NEWLINE
+	| %empty
+;
+
 %%
-
 /* ADDITIONAL C CODE */
 
-int main() {  
-    yyparse();
-    
-    csv_main.print(cout);
-
-    return 0;
-}
-
-void yyerror(const char *s) {
-    cerr << "Error: " << s << endl;
+int main() {
+	yyparse();
+	return 0;
 }

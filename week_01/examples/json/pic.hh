@@ -1,37 +1,78 @@
-#include<bits/stdc++.h>
+#include <bits/stdc++.h>
 using namespace std;
 
-struct JSONvalue;
-struct JSONarray;
-struct JSONObject;
-
-struct JSONvalue {
-    int object_type;
-    // 0: object, 1: array, 2: string, 3: int, 4: float, 5: true, 6: false, 7: null
-    union {
-        JSONObject* obj_value;
-        JSONarray* arr_value;
-        string* str_value;
-        int int_value;
-        float float_value;
-    };
-
-    JSONvalue();
-    JSONvalue(const JSONvalue& other);
-    JSONvalue& operator=(const JSONvalue& other);
-    ~JSONvalue();
-
-    void print(std::ostream &os) const;
+enum JSONType {
+	JSON_STRING,
+	JSON_NUMBER,
+	JSON_BOOL,
+	JSON_NULL,
+	JSON_OBJECT,
+	JSON_ARRAY,
 };
 
-struct JSONarray {
-    vector<JSONvalue*> elements;
+struct JSON;
+struct JSONArray;
 
-    void print(std::ostream &os) const;
+struct JSONValue {
+	JSONType vtype;
+	void *value;
+
+	JSONValue(string x) {
+		vtype = JSON_STRING;
+		value = new string(x);
+	}
+	JSONValue(const char *x) {
+		vtype = JSON_STRING;
+		value = new string(x);
+	}
+	JSONValue(double x) {
+		vtype = JSON_NUMBER;
+		value = new double(x);
+	}
+	JSONValue(int x) {
+		vtype = JSON_NUMBER;
+		value = new int(x);
+	}
+	JSONValue(bool x) {
+		vtype = JSON_BOOL;
+		value = new bool(x);
+	}
+	JSONValue(nullptr_t) {
+		vtype = JSON_NULL;
+		value = nullptr;
+	}
+	JSONValue(const JSON& x);
+	JSONValue(const JSONArray& x);
+  ~JSONValue();
+
+	void print(int depth);
 };
 
-struct JSONObject {
-    map<string, JSONvalue*> members;
+struct JSON {
+	map<string,JSONValue*> pairs;
 
-    void print(std::ostream &os) const;
+	JSON() {}
+	JSON(const JSON& other) : pairs(other.pairs) {}
+	~JSON();
+
+	void print(int depth);
 };
+
+struct JSONArray {
+	vector<JSON*> objects;
+
+	JSONArray() {}
+	JSONArray(const JSONArray& other) : objects(other.objects) {}
+	~JSONArray() {
+		for (int i = 0; i < objects.size(); i++) delete objects[i];
+	}
+
+	void print(int depth);
+};
+
+// ---
+
+map<string,JSONValue*>* append_list_pair(map<string,JSONValue*> *m, pair<string,JSONValue*> *p);
+JSON* create_obj(map<string,JSONValue*>* pairs);
+vector<JSON*>* append_list_obj(vector<JSON*> *l, JSON* o);
+JSONArray* create_ja(vector<JSON*> *objs);
